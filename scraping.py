@@ -3,6 +3,7 @@ from splinter import Browser
 from bs4 import BeautifulSoup as soup
 import pandas as pd
 import datetime as dt
+import time
 
 
 # Set the executable path and initialize the chrome browser in splinter
@@ -20,7 +21,8 @@ def scrape_all():
             "news_paragraph": news_paragraph,
             "featured_image": featured_image(browser),
             "facts": mars_facts(),
-            "last_modified": dt.datetime.now()
+            "last_modified": dt.datetime.now(),
+            "hemispheres": mars_images(browser)
     }
     # end browser session
     browser.quit()
@@ -96,7 +98,52 @@ def mars_facts():
     # Set the index column to = the description column, inplace means it happens to the existing dataframe instead of creating a new object
     df.set_index('description', inplace=True)
     # use pandas' to_html() function to convert the dataframe to HTML, which can be passed into a website for display
-    return df.to_html()
+    df.style.set_properties(subset=['value'],**{'text-align':'right'})
+    # Pass in an overriding class to the to_html() function which allows CSS stylizing of the dataframe
+    return df.to_html(classes="table table-bordered table-striped table-hover")
+
+# Scrape full-res hemisphere images from Mars
+def mars_images(browser):
+    url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    browser.visit(url)
+    # Sleep for one second to slow down scrape
+    time.sleep(1)
+
+    # 2. Create a list to hold the images and titles.
+    hemisphere_image_urls = []
+
+    # 3. Write code to retrieve the image urls and titles for each hemisphere.
+
+    #---------------------
+
+    # Parse HTML with soup
+
+    html = browser.html
+    home_soup = soup(html, 'html.parser')
+
+    # Count the number of instances of the item class
+    item_count = len(home_soup.find_all('div', class_='item'))
+
+    for i in range(item_count):
+        # initialize a dictionary
+        hemisphere_dict = {}
+        # for each item, click on link (image or text)
+        browser.find_by_css('img[class="thumb"]')[i].click()
+        # Access img class "wide-image" and store url to dictionary with key "img_url"
+        html = browser.html
+        hemisphere_soup = soup(html, 'html.parser')
+        # Find the background image source by indexing img and get the link
+        hemisphere_dict['img_url'] = 'https://astrogeology.usgs.gov/' + hemisphere_soup.find_all('img')[5].get('src')
+        # Access first h2 class "title" and store text to dictionary with key "title"
+        hemisphere_dict['title'] = hemisphere_soup.find_all('h2')[0].text
+        # Append the dictionary to hemisphere_image_urls list
+        hemisphere_image_urls.append(hemisphere_dict)
+        # Return back
+        browser.back()
+
+    return hemisphere_image_urls
+
+
 
 # If this script is running as a script (and not an import), print results of scrape_all (scraped data)
 if __name__ == "__main__":
